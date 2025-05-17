@@ -47,7 +47,8 @@ def affinize(f, s, u):
     """
     # PART (b) ################################################################
     # INSTRUCTIONS: Use JAX to affinize `f` around `(s, u)` in two lines.
-    raise NotImplementedError()
+    A, B = jax.jacrev(f, argnums=(0, 1))(s, u)
+    c = f(s, u) - A @ s - B @ u
     # END PART (b) ############################################################
     return A, B, c
 
@@ -154,7 +155,7 @@ def scp_iteration(f, s0, s_goal, s_prev, u_prev, N, P, Q, R, u_max, ρ):
     -------
     s : numpy.ndarray
         A 2-D array where `s[k]` is the open-loop state at time step `k`,
-        for `k = 0, 1, ..., N-1`
+        for `k = 0, 1, ..., N`
     u : numpy.ndarray
         A 2-D array where `u[k]` is the open-loop state at time step `k`,
         for `k = 0, 1, ..., N-1`
@@ -170,9 +171,15 @@ def scp_iteration(f, s0, s_goal, s_prev, u_prev, N, P, Q, R, u_max, ρ):
 
     # PART (c) ################################################################
     # INSTRUCTIONS: Construct the convex SCP sub-problem.
-    objective = 0.0
-    constraints = []
-    raise NotImplementedError()
+    objective = cvx.quad_form(s_cvx[-1] - s_goal, P)
+    constraints = [s_cvx[0] == s0]
+    for k in range(N):
+        constraints.append(s_cvx[k + 1] == A[k] @ s_cvx[k] + B[k] @ u_cvx[k] + c[k])
+        constraints.append(cvx.norm(s_cvx[k] - s_prev[k], "inf") <= ρ)
+        constraints.append(cvx.norm(u_cvx[k], "inf") <= u_max)
+        constraints.append(cvx.norm(u_cvx[k] - u_prev[k], "inf") <= ρ)
+        objective += cvx.quad_form(s_cvx[k], Q) + cvx.quad_form(u_cvx[k], R) 
+    constraints.append(cvx.norm(s_cvx[-1] - s_prev[-1], "inf") <= ρ)
     # END PART (c) ############################################################
 
     prob = cvx.Problem(cvx.Minimize(objective), constraints)

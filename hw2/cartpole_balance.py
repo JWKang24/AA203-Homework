@@ -60,7 +60,7 @@ def reference(t: float) -> np.ndarray:
 
     # PART (d) ##################################################
     # INSTRUCTIONS: Compute the reference state for a given time
-    raise NotImplementedError()
+    return np.array([a*np.sin(2*np.pi*t/T), np.pi, 2*np.pi*a/T*np.cos(2*np.pi*t/T), 0.0])
     # END PART (d) ##############################################
 
 
@@ -85,8 +85,12 @@ def ricatti_recursion(
     for i in range(max_iters):
         # PART (b) ##################################################
         # INSTRUCTIONS: Apply the Ricatti equation until convergence
-        K = NotImplemented
-        raise NotImplementedError()
+        K = -np.linalg.inv(R + B.T @ P_prev @ B) @ B.T @ P_prev @ A
+        P = Q + A.T @ P_prev @ (A + B @ K)
+        converged = np.max(np.linalg.norm(P - P_prev)) < eps
+        if converged:
+            break
+        P_prev = P
         # END PART (b) ##############################################
     if not converged:
         raise RuntimeError("Ricatti recursion did not converge!")
@@ -119,9 +123,18 @@ def simulate(
     # PART (c) ##################################################
     # INSTRUCTIONS: Complete the function to simulate the cartpole system
     # Hint: use the cartpole wrapper above with odeint
-    s = NotImplemented
-    u = NotImplemented
-    raise NotImplementedError()
+    s = [s0]
+    u = []
+    for k in range(len(t) - 1):
+        # Compute the control input
+        u_k = u_ref + K @ (s[k] - s_ref[k])
+        u.append(u_k)
+        # Integrate the system dynamics using odeint
+        s_kplus1 = odeint(cartpole_wrapper, s[k], t[k:k+2], (u_k,))[1]
+        s.append(s_kplus1)
+    u.append(u_ref + K @ (s[-1] - s_ref[-1]))
+    s = np.array(s)
+    u = np.array(u)
     # END PART (c) ##############################################
     return s, u
 
@@ -136,8 +149,11 @@ def compute_lti_matrices() -> tuple[np.ndarray, np.ndarray]:
     """
     # PART (a) ##################################################
     # INSTRUCTIONS: Construct the A and B matrices
-    A = NotImplemented
-    B = NotImplemented
+    A = np.array([[1, 0, dt, 0],
+                  [0, 1, 0, dt], 
+                  [0, mp*g*dt/mc, 1, 0], 
+                  [0, (mc + mp)*g*dt/(mc*L), 0, 1]])
+    B = np.array([[0], [0], [dt/mc], [dt/(mc*L)]])
     # END PART (a) ##############################################
     return A, B
 
