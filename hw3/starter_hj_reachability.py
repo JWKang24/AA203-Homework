@@ -81,7 +81,14 @@ class PlanarQuadrotor:
         # PART (a): WRITE YOUR CODE BELOW ###############################################
         # You may find `jnp.where` to be useful; see corresponding numpy docstring:
         # https://numpy.org/doc/stable/reference/generated/numpy.where.html
-        raise NotImplementedError
+        y, v_y, phi, omega = state
+        coeffs = jnp.array(
+            [
+                grad_value[1] * jnp.cos(phi) / self.m - grad_value[3] * self.l / self.Iyy,
+                grad_value[1] * jnp.cos(phi) / self.m + grad_value[3] * self.l / self.Iyy
+            ]
+        )
+        return jnp.where(coeffs > 0, jnp.array([self.min_thrust_per_prop, self.min_thrust_per_prop]), jnp.array([self.max_thrust_per_prop, self.max_thrust_per_prop]))
         #################################################################################
 
     def hamiltonian(self, state, time, value, grad_value):
@@ -123,7 +130,12 @@ def target_set(state):
         A scalar, nonpositive iff the state is in the target set.
     """
     # PART (b): WRITE YOUR CODE BELOW ###############################################
-    raise NotImplementedError
+    y, v_y, phi, omega = state
+    check_y = ((y - 5.0)**2 - 2.0**2) / (2.0**2)
+    check_v_y = v_y**2 - 1.
+    check_phi = (phi**2 - (np.pi / 12)**2) / ((np.pi / 12)**2)
+    check_omega = omega**2 - 1.
+    return jnp.max(jnp.array([check_y, check_v_y, check_phi, check_omega]))
     #################################################################################
 
 
@@ -137,7 +149,11 @@ def envelope_set(state):
         A scalar, nonpositive iff the state is in the operational envelope.
     """
     # PART (c): WRITE YOUR CODE BELOW ###############################################
-    raise NotImplementedError
+    y, v_y, phi, omega = state
+    check_y = ((y - 5.0)**2 - 4.0**2) / (4.0**2)
+    check_v_y = (v_y**2 - 6.0**2) / (6.0**2)
+    check_omega = (omega**2 - 8.0**2) / (8.0**2)
+    return jnp.max(jnp.array([check_y, check_v_y, check_omega]))
     #################################################################################
 
 

@@ -39,7 +39,15 @@ def do_mpc(
 
     cost = 0.0
     constraints = []
-
+    cost += cvx.quad_form(x_cvx[-1], P)
+    constraints = [x_cvx[0] == x0]
+    for k in range(N):
+        constraints.append(x_cvx[k + 1] == A @ x_cvx[k] + B @ u_cvx[k])
+        constraints.append(cvx.norm(x_cvx[k], "inf") <= rx)
+        constraints.append(cvx.norm(u_cvx[k], "inf") <= ru)
+        cost += cvx.quad_form(x_cvx[k], Q) + cvx.quad_form(u_cvx[k], R) 
+    constraints.append(cvx.norm(x_cvx[-1], "inf") <= rx)
+    constraints.append(cvx.norm(x_cvx[-1], "inf") <= rf)
     # END PART (a) ############################################################
 
     prob = cvx.Problem(cvx.Minimize(cost), constraints)
@@ -61,7 +69,7 @@ def compute_roa(
     rx: float,
     ru: float,
     rf: float,
-    grid_dim: int = 21,
+    grid_dim: int = 30,
     max_steps: int = 20,
     tol: float = 1e-2,
 ) -> np.ndarray:
@@ -77,7 +85,14 @@ def compute_roa(
             #               infeasible or the state has converged close enough
             #               to the origin. If the state converges, flag the
             #               corresponding entry of `roa` with a value of `1`.
-
+            for t in range(max_steps):
+                x_mpc, u_mpc, status = do_mpc(x, A, B, P, Q, R, N, rx, ru, rf)
+                if status == "infeasible":
+                    break
+                x = A @ x + B @ u_mpc[0, :]
+                if np.linalg.norm(x) < tol:
+                    roa[i, j] = 1
+                    break
             # END PART (b) ####################################################
     return roa
 
@@ -122,7 +137,6 @@ ax[0, 0].set_ylabel(r"$x_{k,2}$")
 ax[1, 0].set_ylabel(r"$u_k$")
 fig.savefig("mpc_feasibility_sim.png", bbox_inches="tight")
 plt.show()
-
 
 # Part (b): Compute and plot regions of attraction for different MPC parameters
 print("Computing regions of attraction (this may take a while) ... ", flush=True)
