@@ -31,7 +31,7 @@ class ReinforceAgent(Agent):
         else:
             return action
 
-    def train(self, env: gym.wrappers, num_episodes: int=500) -> None:
+    def train(self, env: gym.wrappers, num_episodes: int=100) -> None:
         reward_history = []
         for episode in range(num_episodes):
             obs, info = env.reset(seed=1738)
@@ -51,7 +51,7 @@ class ReinforceAgent(Agent):
             reward_history.append(total_reward)
             print(f"Episode {episode+1}: Total Reward = {total_reward}")
 
-        self.plot_rewards(reward_history)
+        # self.plot_rewards(reward_history)
 
     def learn(self, rewards: list, log_probs: list) -> None:
         ### WRITE YOUR CODE BELOW ###################################################
@@ -62,11 +62,16 @@ class ReinforceAgent(Agent):
         ###     torch.stack: https://docs.pytorch.org/docs/stable/generated/torch.stack.html
 
         # 1) Naive REINFORCE
-
+        # total_reward = sum(rewards)
+        # loss = -total_reward * sum(log_probs)
         # 2) REINFORCE with causality trick
-
+        # causal_reward_weighted = [log_probs[i]*sum(rewards[i:]) for i in range(len(rewards))]
+        # loss = -sum(causal_reward_weighted)
         # 3) REINFORCE with causality trick and baseline to "center" the returns
-        loss = None
+        discounted_rewards = [rewards[i]*self.gamma**i for i in range(len(rewards))]
+        baseline = sum(discounted_rewards)/len(rewards)
+        causal_reward_weighted_centered = [log_probs[i]*(np.sum(np.array(rewards[i:]) - baseline)) for i in range(len(rewards))]
+        loss = -sum(causal_reward_weighted_centered)
         ###########################################################################
 
         self.optimizer.zero_grad()

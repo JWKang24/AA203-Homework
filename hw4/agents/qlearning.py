@@ -34,7 +34,13 @@ class QLearning(Agent):
         ###     nn.Sequential: https://docs.pytorch.org/docs/stable/generated/torch.nn.Sequential.html
         ###     nn.Linear: https://docs.pytorch.org/docs/stable/generated/torch.nn.Linear.html
         ###     nn.ReLU: https://docs.pytorch.org/docs/stable/generated/torch.nn.ReLU.html
-        raise NotImplementedError()
+        return torch.nn.Sequential(
+            torch.nn.Linear(self.state_dim, self.hidden_dim),
+            torch.nn.ReLU(),
+            torch.nn.Linear(self.hidden_dim, self.hidden_dim),
+            torch.nn.ReLU(),
+            torch.nn.Linear(self.hidden_dim, self.action_dim)
+        )
         ###########################################################################
     
     def policy(self, state : Union[np.ndarray, torch.tensor], train : bool=False) -> torch.Tensor:
@@ -51,7 +57,15 @@ class QLearning(Agent):
         ###     torch.randint: https://docs.pytorch.org/docs/stable/generated/torch.randint.html
         ###     torch.argmax: https://docs.pytorch.org/docs/stable/generated/torch.argmax.html
         ###     torch.no_grad(): https://docs.pytorch.org/docs/stable/generated/torch.no_grad.html
-        raise NotImplementedError()
+        if train:
+            random_sampled = random.random()
+            if random_sampled < self.eps_threshold():
+                return torch.randint(0, 2, (1, ))
+            else:
+                return torch.argmax(self.policy_network(state), dim=1)
+        else:
+            with torch.no_grad():
+                return torch.argmax(self.policy_network(state), dim=1)
         ###########################################################################
     
     def sample_buffer(self) -> tuple[torch.Tensor, torch.Tensor]:
@@ -81,5 +95,25 @@ class QLearning(Agent):
         ###     torch.optim.AdamW: https://docs.pytorch.org/docs/stable/generated/torch.optim.AdamW.html
         ###     torch.nn.MSELoss: https://docs.pytorch.org/docs/stable/generated/torch.nn.MSELoss.html
         ###     torch.nn.utils.clip_grad_value_: https://docs.pytorch.org/docs/stable/generated/torch.nn.utils.clip_grad_value_.html
-        raise NotImplementedError()
+        optimizer = torch.optim.AdamW(self.policy_network.parameters(), lr=self.learning_rate)
+        loss = torch.nn.MSELoss()
+        for episode in range(num_episodes):
+            cur_s, _= env.reset()
+            terminated, truncated = False, False
+            while not terminated and not truncated:
+                cur_a = self.policy(cur_s, True)
+                next_s, reward, terminated, truncated, _ = env.step(cur_a.item())
+                self.buffer.append(Transition(torch.tensor(cur_s).unsqueeze(0), cur_a.detach().clone(), torch.tensor(reward).unsqueeze(0), torch.tensor(next_s).unsqueeze(0)))
+                cur_s = next_s.copy()
+
+                if len(self.buffer) > self.batch_size:
+                    state_batch, action_batch, target_batch = self.sample_buffer()
+                    cal_Q = self.policy_network(state_batch)
+                    selected_Q = torch.gather(cal_Q, 1, action_batch)
+                    loss_cal = loss(selected_Q, target_batch)
+                    optimizer.zero_grad()
+                    loss_cal.backward()
+                    torch.nn.utils.clip_grad_value_(self.policy_network.parameters(), 100)
+                    optimizer.step()
+
         ###########################################################################

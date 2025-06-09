@@ -82,6 +82,11 @@ for k in tqdm(range(1, num_epochs + 1)):
     # ####################### PART (a): YOUR CODE BELOW #######################
 
     # INSTRUCTIONS: Update `Q` using Q-learning.
+    for idx in shuffled_indices:
+        state = int(log["s"][idx])
+        action = int(log['a'][idx]*0.5)
+        cur_reward = log['r'][idx]
+        Q[state, action] += α*(cur_reward + γ*np.max(Q[int(log["s"][idx + 1]),:]) - Q[state, action])
 
     # ############################# END PART (a) ##############################
 
@@ -101,6 +106,14 @@ for k in tqdm(range(max_iters)):
     # ####################### PART (b): YOUR CODE BELOW #######################
 
     # INSTRUCTIONS: Update `Q_vi` using value iteration.
+    for cur_state in S:
+        for cur_action in range(A.size):
+            cost_to_go = []
+            for d in D:
+                cur_cost = reward(cur_state, cur_action, d)
+                next_state = transition(cur_state, cur_action, d)
+                cost_to_go.append(cur_cost + γ*np.max(Q_vi[next_state,:]))
+            Q_vi[cur_state, cur_action] = np.array(cost_to_go)@P
 
     # ############################# END PART (b) ##############################
 
@@ -151,10 +164,12 @@ plt.show()
 T = 5 * 365
 
 # TODO: replace the next four lines with your code
-a_opt_ql = np.zeros(S.size)
-profit_ql = np.zeros(T)
-a_opt_vi = np.zeros(S.size)
-profit_vi = np.zeros(T)
+a_opt_ql = np.argmax(Q, axis=1)
+states, actions, rewards = simulate(rng, lambda s, A=A: A[a_opt_ql[int(s)]], T)
+profit_ql = np.cumsum(rewards)
+a_opt_vi = np.argmax(Q_vi, axis=1)
+states, actions, rewards = simulate(rng, lambda s, A=A: A[a_opt_vi[int(s)]], T)
+profit_vi = np.cumsum(rewards)
 
 # ############################### END PART (c) ################################
 
